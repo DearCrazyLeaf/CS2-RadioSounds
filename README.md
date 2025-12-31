@@ -65,9 +65,25 @@ Config path:
 > Radio slots are triggered by the `player_radio` event.
 > Use `DebugRadioSlotsToChat` to print slot IDs in chat while mapping.
 
+## Configuration Reference
+
+- `DebugRadioSlotsToChat`: Print radio slot IDs to the trigger player's chat for mapping
+- `RadioSlots`: List of radio menu slot mappings (each slot corresponds to a specific radio command in the in-game menu)
+- `RadioSlots[].Slot`: Slot ID from `player_radio` (map by enabling `DebugRadioSlotsToChat` and triggering each radio menu item)
+- `RadioSlots[].Sounds`: Sound file list for this slot
+- `RadioSlots[].CooldownSeconds`: Cooldown in seconds for this slot
+- `RadioSlots[].ChatAllKey`: Localization key for the chat broadcast
+- `CustomCommands`: List of custom command groups
+- `CustomCommands[].Commands`: Command aliases that trigger the same sound group
+- `CustomCommands[].Sounds`: Sound file list for this command group
+- `CustomCommands[].CooldownSeconds`: Cooldown in seconds for this command group
+- `CustomCommands[].ChatAllKey`: Localization key for the chat broadcast
+- `ConfigVersion`: Managed by CounterStrikeSharp, keep as-is
+
 ## Commands
 
-Custom commands are fully configurable in `CustomCommands`.
+- `!radio` - Toggle custom radio sounds for yourself (default radio sounds remain)
+- Custom commands are fully configurable in `CustomCommands`.
 
 ## License
 
@@ -144,9 +160,25 @@ Custom commands are fully configurable in `CustomCommands`.
 > 电台触发来自 `player_radio` 事件。
 > 开启 `DebugRadioSlotsToChat` 可在聊天框打印 slot，便于映射。
 
+## 配置项说明
+
+- `DebugRadioSlotsToChat`：在聊天框显示触发的 slot，方便映射
+- `RadioSlots`：电台菜单 slot 列表（每个 slot 对应电台菜单里的一个具体电台指令）
+- `RadioSlots[].Slot`：`player_radio` 事件的 slot 值（建议开启 `DebugRadioSlotsToChat` 后逐个点电台菜单来映射）
+- `RadioSlots[].Sounds`：该 slot 对应的音效列表
+- `RadioSlots[].CooldownSeconds`：该 slot 的冷却时间（秒）
+- `RadioSlots[].ChatAllKey`：聊天广播的本地化键
+- `CustomCommands`：自定义指令组列表
+- `CustomCommands[].Commands`：同一组的命令别名
+- `CustomCommands[].Sounds`：该指令组的音效列表
+- `CustomCommands[].CooldownSeconds`：该指令组的冷却时间（秒）
+- `CustomCommands[].ChatAllKey`：聊天广播的本地化键
+- `ConfigVersion`：由 CounterStrikeSharp 管理，请勿手动修改
+
 ## 命令
 
-命令由 `CustomCommands` 配置决定，可自由增删。
+- `!radio` - 为自己开关自定义电台音效（关闭后仍听到原版电台）
+- 其他命令由 `CustomCommands` 配置决定，可自由增删。
 
 ## 许可证
 

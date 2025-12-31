@@ -20,6 +20,7 @@ public class RadioSoundsPlugin : BasePlugin, IPluginConfig<RadioSoundsConfig>
     private readonly Dictionary<string, Dictionary<CCSPlayerController, DateTimeOffset>> _lastPlayed = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, int> _lastIndex = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<int, RadioSlotConfig> _radioSlots = new();
+    private readonly Dictionary<string, int> _radioSlotsByChatKey = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _registeredCommands = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<CCSPlayerController> _disabledPlayers = new();
     private readonly IStringLocalizer<RadioSoundsPlugin> _localizer;
@@ -67,7 +68,15 @@ public class RadioSoundsPlugin : BasePlugin, IPluginConfig<RadioSoundsConfig>
 
                 var groupId = $"custom:{trimmedCommand}";
                 AddCommand(trimmedCommand, "Custom sound command.", (commandPlayer, info) =>
-                    HandleSoundGroup(groupId, commandConfig.Sounds, commandConfig.CooldownSeconds, commandPlayer, info, commandConfig.ChatAllKey));
+                {
+                    if (commandPlayer != null && !IsSoundEnabled(commandPlayer))
+                    {
+                        TryFireFallbackRadio(commandConfig.ChatAllKey, commandPlayer);
+                        return;
+                    }
+
+                    HandleSoundGroup(groupId, commandConfig.Sounds, commandConfig.CooldownSeconds, commandPlayer, info, commandConfig.ChatAllKey);
+                });
 
                 _registeredCommands.Add(trimmedCommand);
             }
@@ -102,6 +111,7 @@ public class RadioSoundsPlugin : BasePlugin, IPluginConfig<RadioSoundsConfig>
     private void RebuildRadioSlots()
     {
         _radioSlots.Clear();
+        _radioSlotsByChatKey.Clear();
 
         foreach (var radio in Config.RadioSlots)
         {
@@ -111,6 +121,11 @@ public class RadioSoundsPlugin : BasePlugin, IPluginConfig<RadioSoundsConfig>
             }
 
             _radioSlots[radio.Slot] = radio;
+
+            if (!string.IsNullOrWhiteSpace(radio.ChatAllKey))
+            {
+                _radioSlotsByChatKey[radio.ChatAllKey] = radio.Slot;
+            }
         }
     }
 
@@ -119,6 +134,11 @@ public class RadioSoundsPlugin : BasePlugin, IPluginConfig<RadioSoundsConfig>
         if (Config.DebugRadioSlotsToChat && @event.Userid != null)
         {
             @event.Userid.PrintToChat($"[RadioSlot] slot={@event.Slot}");
+        }
+
+        if (@event.Userid != null && !IsSoundEnabled(@event.Userid))
+        {
+            return HookResult.Continue;
         }
 
         if (!_radioSlots.TryGetValue(@event.Slot, out var radio))
@@ -136,12 +156,14 @@ public class RadioSoundsPlugin : BasePlugin, IPluginConfig<RadioSoundsConfig>
         if (sounds.Count == 0)
         {
             var didNotLoadMessage = _localizer["lang.plugin.didnotload"];
-            if (player != null)
+            if (info != null)
+            {
+                info.ReplyToCommand(didNotLoadMessage);
+            }
+            else if (player != null)
             {
                 player.PrintToChat(didNotLoadMessage);
             }
-
-            info?.ReplyToCommand(didNotLoadMessage);
 
             return;
         }
@@ -158,8 +180,14 @@ public class RadioSoundsPlugin : BasePlugin, IPluginConfig<RadioSoundsConfig>
                 DateTimeOffset.UtcNow - lastPlayed < TimeSpan.FromSeconds(cooldownSeconds))
             {
                 var cooldownMessage = $"{_localizer["lang.chat.cooldown", cooldownSeconds]}";
-                player.PrintToChat(cooldownMessage);
-                info?.ReplyToCommand(cooldownMessage);
+                if (info != null)
+                {
+                    info.ReplyToCommand(cooldownMessage);
+                }
+                else
+                {
+                    player.PrintToChat(cooldownMessage);
+                }
                 player.PrintToCenter(_localizer["lang.center.cooldown"]);
                 return;
             }
@@ -170,11 +198,6 @@ public class RadioSoundsPlugin : BasePlugin, IPluginConfig<RadioSoundsConfig>
         var song = PickSound(groupId, sounds);
         foreach (var target in Utilities.GetPlayers())
         {
-            if (!IsSoundEnabled(target))
-            {
-                continue;
-            }
-
             target.ExecuteClientCommand($"play \"{song}\"");
         }
 
@@ -213,6 +236,27 @@ public class RadioSoundsPlugin : BasePlugin, IPluginConfig<RadioSoundsConfig>
     private bool IsSoundEnabled(CCSPlayerController player)
     {
         return !_disabledPlayers.Contains(player);
+    }
+
+    private bool TryFireFallbackRadio(string? chatAllKey, CCSPlayerController player)
+    {
+        if (string.IsNullOrWhiteSpace(chatAllKey))
+        {
+            return false;
+        }
+
+        if (!_radioSlotsByChatKey.TryGetValue(chatAllKey, out var slot))
+        {
+            return false;
+        }
+
+        var radioEvent = new EventPlayerRadio(true)
+        {
+            Slot = slot,
+            Userid = player
+        };
+        radioEvent.FireEvent(false);
+        return true;
     }
 
     private bool ToggleSounds(CCSPlayerController player)
